@@ -9,6 +9,8 @@
  */
 
 export interface Env {
+	ALLOWED_TOKENS: string;
+
 	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
 	// MY_KV_NAMESPACE: KVNamespace;
 	//
@@ -27,6 +29,46 @@ export interface Env {
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		return new Response('Hello World!');
+		const tokens = env.ALLOWED_TOKENS.split('; ');
+		const authorization = request.headers.get('Authorization');
+
+		if (!authorization) {
+			return Response.json({ message: 'Unauthorized', code: 401 }, { status: 401 });
+		}
+
+		const token = authorization.replace('Bearer ', '');
+
+		if (!tokens.includes(token)) {
+			return Response.json({ message: 'Forbidden', code: 403 }, { status: 403 });
+		}
+
+		const urlQuery = new URL(request.url).searchParams.get('url');
+
+		if (!urlQuery) {
+			return Response.json({
+				message: 'Bad Request', code: 400, errors: [{
+					parameters: {
+						url: {
+							required: true
+						}
+					}
+				}]
+			}, { status: 400 });
+		}
+
+		const _headers = new Headers(request.headers);
+		_headers.delete('Authorization');
+		_headers.delete('Host');
+		_headers.delete('Referer');
+		_headers.delete('Origin');
+		if (_headers.has('X-Authorization')) _headers.set('Authorization', _headers.get('X-Authorization') ?? '');
+
+		const response = fetch(urlQuery, {
+			body: request.body,
+			headers: request.headers,
+			method: request.method,
+		});
+
+		return response;
 	},
 };
