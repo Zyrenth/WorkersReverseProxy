@@ -1,0 +1,6 @@
+name = "cfworkerproxy"
+main = "src/index.ts"
+compatibility_date = "2023-12-18"
+
+[vars]
+ALLOWED_TOKENS = "token1; token2; token3"
